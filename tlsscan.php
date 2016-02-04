@@ -272,7 +272,7 @@ function version() {
 function usage() {
 	global $argv, $OPENSSL;
 	    //12345678901234567890123456789012345678901234567890123456789012345678901234567890
-	echo($argv[0] . " [ OPTIONS ] host [ -p port ]\n");
+	echo($argv[0] . " [ OPTIONS ] -H host\n");
 	echo("\n");
 	echo("  A program to scan for SSL/TLS protocols and cipher suites\n");
 	echo("\n");
