@@ -22,8 +22,9 @@ This is a PHP script which uses OpenSSL to scan a remote host's SSL/TLS protocol
     OPTIONS:
     --browser BROWSER  Imitate as best as possible a given browser where BROWSER
                        is one of chrome, chrome47, edge, edge12, firefox,
-                       firefox38, firefox44, ie, ie8, ie11, safari,
-                       safari8. Overrides --ciphers.
+                       firefox38, firefox44, ie, ie8, ie11, ios, ios8, ios9,
+                       safari, safari8. No version means latest version.
+                       Overrides --ciphers.
     --ciphers STRING   Use an OpenSSL cipher string when connecting.
     -h, --help         This message
     -p                 Port, defaults to 443
