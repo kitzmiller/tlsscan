@@ -1,6 +1,8 @@
 #!/usr/bin/php
 <?php
 /*****
+ * Version 0.2 - 2016-02-10 - Chris Kitzmiller
+ *     Added support for starttls
  * Version 0.1 - 2016-02-04 - Chris Kitzmiller
  *****/
 
@@ -10,9 +12,10 @@ $longopts = array(
 	"browser:",
 	"ciphers:",
 	"help",
+	"include-failures",
 	"pretty",
 	"progress",
-	"include-failures",
+	"starttls:",
 	"version"
 );
 $o = getopt($shortopts, $longopts);
@@ -90,7 +93,24 @@ $progress = isset($o["progress"]) ? true : false;
 $pretty = isset($o["pretty"]) ? true : false;
 $includefailures = isset($o["include-failures"]) ? true : false;
 $connect = $o["H"];
-if(isset($o["p"])) { $connect .= ":" . $o["p"]; } else { $connect .= ":443"; }
+if(isset($o["p"])) {
+	$connect .= ":" . $o["p"];
+} else {
+	$connect .= ":443";
+}
+if(isset($o["starttls"])) {
+	$connect .= " -starttls " . $o["starttls"];
+} else {
+	if(isset($o["p"])) {
+		switch($o["p"]) {
+			case 21: $connect .= " -starttls ftp"; break;
+			case 25: $connect .= " -starttls smtp"; break;
+			case 110: $connect .= " -starttls pop3"; break;
+			case 143: $connect .= " -starttls imap"; break;
+			case 587: $connect .= " -starttls smtp"; break;
+		}
+	}
+}
 
 // check for -V support
 $voffset = 0;
@@ -293,9 +313,13 @@ function usage() {
 	echo("                     Overrides --ciphers.\n");
 	echo("  --ciphers STRING   Use an OpenSSL cipher string when connecting.\n");
 	echo("  -h, --help         This message\n");
-	echo("  -p                 Port, defaults to 443\n");
+	echo("  -p                 Port, defaults to 443. If 21, 25, 110, 143, 587 then\n");
+	echo("                     starttls with the appropriate protocol is assumed. can\n");
+	echo("                     be overridden with --starttls though.\n");
 	echo("  --progress         Show progress while scanning\n");
 	echo("  --pretty           Use JSON_PRETTY_PRINT\n");
+	echo("  --starttls PROTO   PROTO must be supported by OpenSSL. Typically just ftp,\n");
+	echo("                     smtp, pop3, or imap\n");
 	echo("  --include-failures Include failed connections in output\n");
 	echo("  -v, --version      Show version information\n");
 	echo("\n");

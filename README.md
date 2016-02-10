@@ -9,7 +9,7 @@ This is a PHP script which uses OpenSSL to scan a remote host's SSL/TLS protocol
 * Can emulate cipher suite and protocol ordering of various browsers
 
 ##Compatibility
-* Works with OpenSSL 0.9.8
+* Tested with OpenSSL 0.9.8 through 1.0.1
 * Scans for SSLv2 through TLSv1.2
 
 ##Requirements
@@ -27,10 +27,14 @@ This is a PHP script which uses OpenSSL to scan a remote host's SSL/TLS protocol
                        Overrides --ciphers.
     --ciphers STRING   Use an OpenSSL cipher string when connecting.
     -h, --help         This message
-    -p                 Port, defaults to 443
+    --include-failures Include failed connections in output
+    -p                 Port, defaults to 443. If 21, 25, 110, 143, 587 then
+                       starttls with the appropriate protocol is assumed. can
+                       be overridden with --starttls though.
     --progress         Show progress while scanning
     --pretty           Use JSON_PRETTY_PRINT
-    --include-failures Include failed connections in output
+    --starttls PROTO   PROTO must be supported by OpenSSL. Typically just ftp,
+                       smtp, pop3, or imap
     -v, --version      Show version information
 
 ##Note
