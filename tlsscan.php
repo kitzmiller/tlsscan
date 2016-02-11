@@ -1,6 +1,8 @@
 #!/usr/bin/php
 <?php
 /*****
+ * Version 0.3 - 2016-02-11 - Chris Kitzmiller
+ *     Added detection of DH parameter size and ECDH curve types
  * Version 0.2 - 2016-02-10 - Chris Kitzmiller
  *     Added support for starttls
  * Version 0.1 - 2016-02-04 - Chris Kitzmiller
@@ -43,6 +45,35 @@ if(isset($o["pretty"]) && (version_compare("5.4.0", phpversion()) > 0)) { echo("
 // Build internal variables
 $final = array();
 $protocols = array("tls1.2", "tls1.1", "tls1", "ssl3", "ssl2");
+$curves = array(
+	1 => "sect163k1",
+	2 => "sect163r1",
+	3 => "sect163r2",
+	4 => "sect193r1",
+	5 => "sect193r2",
+	6 => "sect233k1",
+	7 => "sect233r1",
+	8 => "sect239k1",
+	9 => "sect283k1",
+	10 => "sect283r1",
+	11 => "sect409k1",
+	12 => "sect409r1",
+	13 => "sect571k1",
+	14 => "sect571r1",
+	15 => "secp160k1",
+	16 => "secp160r1",
+	17 => "secp160r2",
+	18 => "secp192k1",
+	19 => "secp192r1",
+	20 => "secp224k1",
+	21 => "secp224r1",
+	22 => "secp256k1",
+	23 => "secp256r1",
+	24 => "secp384r1",
+	25 => "secp521r1",
+	65281 => "arbitrary_explicit_prime_curves",
+	65282 => "arbitrary_explicit_char2_curves"
+);
 $cipherstring = isset($o["ciphers"]) ? $o["ciphers"] : "ALL:eNULL:aNULL";
 if(isset($o["browser"])) {
 	switch($o["browser"]) {
@@ -177,7 +208,7 @@ switch($protocols[0]) {
 	default: echo("Unexpected protocol \"" . $protocols[0] . "\"\n"); exit(1);
 }
 unset($output);
-$execstring = "echo|$OPENSSL s_client $CAFILE $testproto -cipher '$cipherstring' -connect $connect 2>&1";
+$execstring = "echo|$OPENSSL s_client $CAFILE $testproto -cipher '$cipherstring' -connect $connect -msg 2>&1";
 $lastline = exec($execstring, $output, $retval);
 if($retval || sizeof($output) < 30) {
 	echo($output[0] . "\n");
@@ -206,7 +237,7 @@ for($i = 0; $i < sizeof($protocols); $i++) {
 		foreach($ciphers as $ciphersuite => $cipher) {
 			unset($output);
 			unset($error);
-			$lastline = exec("echo|$OPENSSL s_client $sclientproto $CAFILE -cipher '$ciphersuite' -connect $connect 2>&1", $output, $retval);
+			$lastline = exec("echo|$OPENSSL s_client $sclientproto $CAFILE -cipher '$ciphersuite' -connect $connect -msg 2>&1", $output, $retval);
 			$result = true;
 			for($j = 0; $result && $j < sizeof($output); $j++) {
 				if(strpos($output[$j], ":error:")) {
@@ -243,6 +274,7 @@ if($pretty) {
 
 function parse_output($output) {
 	global $ciphers;
+	global $curves;
 	$blocks = array();
 	$newblock = array();
 	$parsed = array();
@@ -254,7 +286,33 @@ function parse_output($output) {
 			$newblock[] = $line;
 		}
 	}
-	foreach($blocks as $block) {
+	$dhparamsize = false;
+	$curve = false;
+	$curvehex = false;
+	$curvetype = false;
+	$curvetypehex = false;
+	for($i = 0; $i < sizeof($blocks[0]); $i++) {
+		if(strpos($blocks[0][$i], "ServerKeyExchange")) {
+			$line = $blocks[0][$i + 1];
+
+			// For DH
+			$sizehexbytes = "0x" . substr($line, 16, 2) . substr($line, 19, 2);
+			$dhparamsize = hexdec($sizehexbytes) * 8;
+
+			// For ECDH
+			$curvetypehex = substr($line, 16, 2);
+			switch($curvetypehex) {
+				case "01": $curvetype = "explicit_prime"; break;
+				case "02": $curvetype = "explicit_char2"; break;
+				case "03": $curvetype = "named_curve"; break;
+				default: $curvetype = "unknown ($curvetypehex)";
+			}
+			if($curvetype == "named_curve") {
+				$curvehex = "0x" . substr($line, 19, 2) . substr($line, 22, 2);
+			}
+		}
+	}
+	foreach($blocks as $key => $block) {
 		if(strpos($block[0], "New, ") === 0) {
 			foreach($block as $line) {
 				if(strpos($line, "    Protocol  : ") === 0) {
@@ -272,6 +330,18 @@ function parse_output($output) {
 					$splode = explode(":", $line);
 					foreach($ciphers[trim($splode[1])] as $key => $val) {
 						$parsed[$key] = $val;
+					}
+					if($dhparamsize && ($ciphers[trim($splode[1])]["keyexchange"] == "DH")) {
+						$parsed["dhbitlength"] = $dhparamsize;
+					}
+					if($curvetypehex && ($ciphers[trim($splode[1])]["keyexchange"] == "ECDH")) {
+						$parsed["curvetype"] = $curvetype;
+						if($curvetype == "named_curve") {
+							$parsed["curvehex"] = $curvehex;
+							if(isset($curves[hexdec($curvehex)])) {
+								$parsed["curvename"] = $curves[hexdec($curvehex)];
+							}
+						}
 					}
 				}
 				if(strpos($line, "Server public key is ") === 0) {
@@ -295,7 +365,7 @@ function parse_output($output) {
 
 function version() {
 	global $argv, $OPENSSL;
-	echo($argv[0] . " v0.1 - " . exec($OPENSSL . " version") . "\n");
+	echo($argv[0] . " v0.3 - " . exec($OPENSSL . " version") . "\n");
 }
 
 function usage() {

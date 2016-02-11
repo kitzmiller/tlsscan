@@ -6,6 +6,8 @@ This is a PHP script which uses OpenSSL to scan a remote host's SSL/TLS protocol
 * Shows preferred connection parameters
 * Shows information about export level cipher suites
 * Shows information about forward secrecy
+* Shows Diffie-Hellman bit length 
+* Shows elliptic curve type/name
 * Can emulate cipher suite and protocol ordering of various browsers
 
 ##Compatibility
