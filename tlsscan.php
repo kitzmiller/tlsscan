@@ -1,6 +1,9 @@
 #!/usr/bin/php
 <?php
 /*****
+ * Version 0.4 - 2016-03-03 - Chris Kitzmiller
+ *     Added detection of enabled protocols with no ciphers
+ *     Skip scanning of unsupported protocols
  * Version 0.3 - 2016-02-11 - Chris Kitzmiller
  *     Added detection of DH parameter size and ECDH curve types
  * Version 0.2 - 2016-02-10 - Chris Kitzmiller
@@ -17,6 +20,7 @@ $longopts = array(
 	"include-failures",
 	"pretty",
 	"progress",
+	"protocols:",
 	"starttls:",
 	"version"
 );
@@ -24,7 +28,7 @@ $o = getopt($shortopts, $longopts);
 
 // Resolve dependencies 
 $OPENSSL = exec("which openssl", $output, $retval);
-if($retval) { die("Unable to find openssl\n"); }
+if($retval) { echo("Unable to find openssl\n"); exit(1); }
 
 if(is_readable("/etc/ssl/certs/ca-certificates.crt")) {
 	$CAFILE = "-CAfile /etc/ssl/certs/ca-certificates.crt";
@@ -43,8 +47,27 @@ if(!isset($o["H"])) { usage(); exit(1); }
 if(isset($o["pretty"]) && (version_compare("5.4.0", phpversion()) > 0)) { echo("Error: --pretty not supported on PHP version " . phpversion() . "\n"); exit(1); }
 
 // Build internal variables
+$STDERR = fopen('php://stderr', 'w+');
 $final = array();
-$protocols = array("tls1.2", "tls1.1", "tls1", "ssl3", "ssl2");
+
+//determine OpenSSL's protocol support
+$opensslprotocols = array();
+$protocols = array();
+$lastline = exec("$OPENSSL ciphers 'TLSv1.2' 2>&1 >/dev/null", $output, $retval);
+if(!$retval) { $opensslprotocols[] = "tls1.2"; $opensslprotocols[] = "tls1.1"; }
+
+$lastline = exec("$OPENSSL ciphers 'TLSv1' 2>&1 >/dev/null", $output, $retval);
+if(!$retval) { $opensslprotocols[] = "tls1"; }
+
+$lastline = exec("$OPENSSL ciphers 'SSLv3' 2>&1 >/dev/null", $output, $retval);
+if(!$retval) { $opensslprotocols[] = "ssl3"; }
+
+$lastline = exec("$OPENSSL ciphers 'SSLv2' 2>&1 >/dev/null", $output, $retval);
+if(!$retval) { $opensslprotocols[] = "ssl2"; }
+
+// Set a default protocol list
+$protocols = $opensslprotocols;
+
 $curves = array(
 	1 => "sect163k1",
 	2 => "sect163r1",
@@ -74,7 +97,7 @@ $curves = array(
 	65281 => "arbitrary_explicit_prime_curves",
 	65282 => "arbitrary_explicit_char2_curves"
 );
-$cipherstring = isset($o["ciphers"]) ? $o["ciphers"] : "ALL:eNULL:aNULL";
+
 if(isset($o["browser"])) {
 	switch($o["browser"]) {
 		case "chrome47":
@@ -120,6 +143,8 @@ if(isset($o["browser"])) {
 			echo("Error: Unknown browser \"" . $o["browser"] . "\".\n"); exit(1);
 	}
 }
+if(isset($o["ciphers"])) { $cipherstring = $o["ciphers"]; }
+if(isset($o["protocols"])) { $protocols = explode(",", $o["protocols"]); }
 $progress = isset($o["progress"]) ? true : false;
 $pretty = isset($o["pretty"]) ? true : false;
 $includefailures = isset($o["include-failures"]) ? true : false;
@@ -199,18 +224,33 @@ foreach($output as $line) {
 }
 
 // Test connect to target
-switch($protocols[0]) {
-	case "tls1.2": $testproto = ""; break;
-	case "tls1.1": $testproto = "-no_tls1_2"; break;
-	case "tls1":   $testproto = "-no_tls1_2 -no_tls1_1"; break;
-	case "ssl3":   $testproto = "-no_tls1_2 -no_tls1_1 -no_tls1"; break;
-	case "ssl2":   $testproto = "-no_tls1_2 -no_tls1_1 -no_tls1 -no_ssl3"; break;
-	default: echo("Unexpected protocol \"" . $protocols[0] . "\"\n"); exit(1);
+$testprotocols = array_intersect($protocols, $opensslprotocols);
+foreach($protocols as $key => $proto) {
+	if(!in_array($proto, $testprotocols)) {
+		fwrite($STDERR, "Warning: unable to test " . $proto . "\n");
+		unset($protocols[$key]);
+	}
 }
+
+$skipprotos = array();
+foreach($opensslprotocols as $oproto) {
+	if(!in_array($oproto, $testprotocols)) {
+		switch($oproto) {
+			case "tls1.2": $skipprotos[] = "-no_tls1_2"; break;
+			case "tls1.1": $skipprotos[] = "-no_tls1_1"; break;
+			case "tls1":   $skipprotos[] = "-no_tls1";   break;
+			case "ssl3":   $skipprotos[] = "-no_ssl3";   break;
+			case "ssl2":   $skipprotos[] = "-no_ssl2";   break;
+		}
+	}
+}
+$skipprotostring = implode(" ", $skipprotos);
+
 unset($output);
-$execstring = "echo|$OPENSSL s_client $CAFILE $testproto -cipher '$cipherstring' -connect $connect -msg 2>&1";
+$execstring = "echo|$OPENSSL s_client $CAFILE $skipprotostring -cipher '$cipherstring' -connect $connect -msg 2>&1";
 $lastline = exec($execstring, $output, $retval);
 if($retval || sizeof($output) < 30) {
+	echo($execstring . "\n");
 	echo($output[0] . "\n");
 	if($retval) { exit($retval); } else { exit(1); }
 }
@@ -239,15 +279,22 @@ for($i = 0; $i < sizeof($protocols); $i++) {
 			unset($error);
 			$lastline = exec("echo|$OPENSSL s_client $sclientproto $CAFILE -cipher '$ciphersuite' -connect $connect -msg 2>&1", $output, $retval);
 			$result = true;
-			for($j = 0; $result && $j < sizeof($output); $j++) {
-				if(strpos($output[$j], ":error:")) {
-					$splode = explode(":", $output[$j]);
-					$error = $splode[5];
+			foreach($output as $line) {
+				$splode = explode(":", $line);
+				if(isset($splode[1]) && ($splode[1] == "error")) {
 					$result = false;
-					//echo(".:" . $protocols[$i] . ":" . $ciphersuite . ": " . $output[$j] . "\n");
+					$error = $splode[5];
+					switch($error) {
+						case "no cipher match": break;
+						case "no cipher list": if(!isset($final[$protocols[$i]])) { $final[$protocols[$i]] = new stdClass(); } break; // protocol enabled but no ciphers, important for DROWN
+						case "ssl handshake failure": break;
+						case "sslv3 alert handshake failure": break;
+						default:
+					}
 				}
 			}
-			if($retval || !$result || $j < 30) {
+			// if s_client errored, or exited 0 but had a line with "xyz:error:...", or simply didn't output enough then mark this connection as a failure
+			if($retval || !$result || sizeof($output) < 30) {
 				if($progress) { echo("."); }
 				if($includefailures) {
 					$final[$protocols[$i]][$ciphersuite]["result"] = false;
@@ -348,15 +395,6 @@ function parse_output($output) {
 					$splode = explode(" ", $line);
 					$parsed["bitlength"] = $splode[4];
 				}
-				/* don't care about this right now
-				if(strpos($line, "Secure Renegotiation IS ") === 0) {
-					$splode = explode(" ", $line);
-					if($splode[3] == "supported") {
-						$parsed["renegotiation"] = true;
-					} else {
-						$parsed["renegotiation"] = false;
-					}
-				} */
 			}
 		}
 	}
@@ -380,14 +418,16 @@ function usage() {
 	echo("                     is one of chrome, chrome47, edge, edge12, firefox,\n");
 	echo("                     firefox38, firefox44, ie, ie8, ie11, ios, ios8, ios9,\n");
 	echo("                     safari, safari8. No version means latest version.\n");
-	echo("                     Overrides --ciphers.\n");
-	echo("  --ciphers STRING   Use an OpenSSL cipher string when connecting.\n");
+	echo("  --ciphers STRING   Use an OpenSSL cipher string when connecting. Overrides\n");
+	echo("                     --browser.\n");
 	echo("  -h, --help         This message\n");
 	echo("  -p                 Port, defaults to 443. If 21, 25, 110, 143, 587 then\n");
-	echo("                     starttls with the appropriate protocol is assumed. can\n");
+	echo("                     starttls with the appropriate protocol is assumed. Can\n");
 	echo("                     be overridden with --starttls though.\n");
-	echo("  --progress         Show progress while scanning\n");
 	echo("  --pretty           Use JSON_PRETTY_PRINT\n");
+	echo("  --progress         Show progress while scanning\n");
+	echo("  --protocols LIST   A comma separated list. Overrides --browser\n");
+	echo("                     (e.g. tls1.2,tls1.1,tls1,ssl3,ssl2)\n");
 	echo("  --starttls PROTO   PROTO must be supported by OpenSSL. Typically just ftp,\n");
 	echo("                     smtp, pop3, or imap\n");
 	echo("  --include-failures Include failed connections in output\n");
