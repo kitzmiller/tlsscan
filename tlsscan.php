@@ -144,6 +144,7 @@ if(isset($o["browser"])) {
 	}
 }
 if(isset($o["ciphers"])) { $cipherstring = $o["ciphers"]; }
+if(empty($cipherstring)) { $cipherstring = "ALL:aNULL:eNULL"; }
 if(isset($o["protocols"])) { $protocols = explode(",", $o["protocols"]); }
 $progress = isset($o["progress"]) ? true : false;
 $pretty = isset($o["pretty"]) ? true : false;
