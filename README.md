@@ -25,13 +25,13 @@ This is a PHP script which uses OpenSSL to scan a remote host's SSL/TLS protocol
 
     OPTIONS:
     --browser BROWSER  Imitate as best as possible a given browser where BROWSER
-                       is one of chrome, chrome47, edge, edge12, firefox,
-                       firefox38, firefox44, ie, ie8, ie11, ios, ios8, ios9,
-                       safari, safari8. No version means latest version.
+                       is one of chrome, chrome47, chrome49, edge, edge12,
+                       firefox, firefox38, firefox44, ie, ie8, ie11, ios, ios8,
+                       ios9, safari, safari8. No version means latest version.
     --ciphers STRING   Use an OpenSSL cipher string when connecting. Overrides
                        --browser.
     -h, --help         This message
-    -p                 Port, defaults to 443. If 21, 25, 110, 143, 587 then
+    -p                 Port, defaults to 443. If 21, 25, 110, 143, or 587 then
                        starttls with the appropriate protocol is assumed. Can
                        be overridden with --starttls though.
     --pretty           Use JSON_PRETTY_PRINT

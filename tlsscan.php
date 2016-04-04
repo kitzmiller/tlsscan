@@ -1,6 +1,9 @@
 #!/usr/bin/php
 <?php
 /*****
+ * Version 0.5 - 2016-04-04 - Chris Kitzmiller
+ *     Improved cipher hunt loop. Now finds ciphers in server supported order with fewer connections.
+ *     Added support for Chrome 49
  * Version 0.4 - 2016-03-03 - Chris Kitzmiller
  *     Added detection of enabled protocols with no ciphers
  *     Skip scanning of unsupported protocols
@@ -425,7 +428,7 @@ function parse_output($output) {
 
 function version() {
 	global $argv, $OPENSSL;
-	echo($argv[0] . " v0.3 - " . exec($OPENSSL . " version") . "\n");
+	echo($argv[0] . " v0.5 - " . exec($OPENSSL . " version") . "\n");
 }
 
 function usage() {
@@ -437,13 +440,13 @@ function usage() {
 	echo("\n");
 	echo("OPTIONS:\n");
 	echo("  --browser BROWSER  Imitate as best as possible a given browser where BROWSER\n");
-	echo("                     is one of chrome, chrome47, edge, edge12, firefox,\n");
-	echo("                     firefox38, firefox44, ie, ie8, ie11, ios, ios8, ios9,\n");
-	echo("                     safari, safari8. No version means latest version.\n");
+	echo("                     is one of chrome, chrome47, chrome49, edge, edge12,\n");
+	echo("                     firefox, firefox38, firefox44, ie, ie8, ie11, ios, ios8,\n");
+	echo("                     ios9, safari, safari8. No version means latest version.\n");
 	echo("  --ciphers STRING   Use an OpenSSL cipher string when connecting. Overrides\n");
 	echo("                     --browser.\n");
 	echo("  -h, --help         This message\n");
-	echo("  -p                 Port, defaults to 443. If 21, 25, 110, 143, 587 then\n");
+	echo("  -p                 Port, defaults to 443. If 21, 25, 110, 143, or 587 then\n");
 	echo("                     starttls with the appropriate protocol is assumed. Can\n");
 	echo("                     be overridden with --starttls though.\n");
 	echo("  --pretty           Use JSON_PRETTY_PRINT\n");
