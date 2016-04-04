@@ -101,8 +101,14 @@ $curves = array(
 if(isset($o["browser"])) {
 	switch($o["browser"]) {
 		case "chrome47":
-		case "chrome":
+			// OpenSSL can't do ChaCha20-Poly1305
 			$cipherstring = "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-SHA:ECDHE-RSA-AES256-SHA:DHE-RSA-AES256-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES128-SHA:DHE-RSA-AES128-SHA:AES128-GCM-SHA256:AES256-SHA:AES128-SHA:DES-CBC3-SHA";
+			$protocols = array("tls1.2", "tls1.1", "tls1");
+			break;
+		case "chrome49":
+		case "chrome":
+			// OpenSSL can't do ChaCha20-Poly1305
+			$cipherstring = "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-SHA:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES128-SHA:AES128-GCM-SHA256:AES256-SHA:AES128-SHA:DES-CBC3-SHA";
 			$protocols = array("tls1.2", "tls1.1", "tls1");
 			break;
 		case "firefox":
@@ -260,8 +266,7 @@ $parsed = parse_output($output);
 $final["preferred"][$parsed["ciphersuite"]] = $parsed;
 $maxproto = $parsed["protocol"];
 
-// Try all the protocols with all of the ciphers
-// TODO: fix this so that if not using --browser it returns the server's ordering
+// Try all the protocols with the cipher list, excluding each successful cipher one at a time.
 $protoskip = true;
 for($i = 0; $i < sizeof($protocols); $i++) {
 	if($protocols[$i] == $maxproto) { $protoskip = false; }
@@ -275,10 +280,15 @@ for($i = 0; $i < sizeof($protocols); $i++) {
 			case "ssl2": $sclientproto = "-ssl2"; break;
 			default: echo("unexpected protocol \"" . $protocols[$i] . "\"\n"); exit(1);
 		}
-		foreach($ciphers as $ciphersuite => $cipher) {
+		$discoveredciphers = array();
+		do {
+			$cipherlist = $cipherstring;
+			if($discoveredciphers) {
+				$cipherlist .= ":!" . implode(":!", $discoveredciphers);
+			}
 			unset($output);
 			unset($error);
-			$lastline = exec("echo|$OPENSSL s_client $sclientproto $CAFILE -cipher '$ciphersuite' -connect $connect -msg 2>&1", $output, $retval);
+			$lastline = exec("echo|$OPENSSL s_client $sclientproto $CAFILE -cipher '$cipherlist' -connect $connect -msg 2>&1", $output, $retval);
 			$result = true;
 			foreach($output as $line) {
 				$splode = explode(":", $line);
@@ -292,6 +302,16 @@ for($i = 0; $i < sizeof($protocols); $i++) {
 						case "sslv3 alert handshake failure": break;
 						default:
 					}
+				} else {
+					if((strpos($line, "New, ") === 0) && (strpos($line, ", Cipher is "))) {
+						$splode = explode(" ", $line);
+						$thecipher = $splode[sizeof($splode) - 1];
+						if($thecipher == "(NONE)") {
+							$result = false;
+						} else {
+							$discoveredciphers[] = $splode[sizeof($splode) - 1];
+						}
+					}
 				}
 			}
 			// if s_client errored, or exited 0 but had a line with "xyz:error:...", or simply didn't output enough then mark this connection as a failure
@@ -303,14 +323,15 @@ for($i = 0; $i < sizeof($protocols); $i++) {
 						$final[$protocols[$i]][$ciphersuite]["error"] = $error;
 					}
 				}
+				$connectsuccess = false;
 			} else {
-				//echo("Y:" . $protocols[$i] . ":" . $ciphersuite . ": " . $lastline . "\n");
 				if($progress) { echo("Y"); }
 				$parsed = parse_output($output);
 				$parsed["result"] = true;
-				$final[$protocols[$i]][$ciphersuite] = $parsed;
+				$final[$protocols[$i]][$parsed["ciphersuite"]] = $parsed;
+				$connectsuccess = true;
 			}
-		}
+		} while($connectsuccess);
 		if($progress) { echo("\n"); }
 	}
 }
