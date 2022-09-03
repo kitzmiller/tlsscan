@@ -8,43 +8,31 @@ This is a PHP script which uses OpenSSL to scan a remote host's SSL/TLS protocol
 * Shows information about forward secrecy
 * Shows Diffie-Hellman bit length 
 * Shows elliptic curve type/name
-* Can emulate cipher suite and protocol ordering of various browsers
 
-##Compatibility
+## Compatibility
 * Tested with OpenSSL 0.9.8 through 1.0.1
 * Scans for SSLv2 through TLSv1.2
 
-##Requirements
-* php
-* OpenSSL
-
-##Usage
+## Usage
     ./tlsscan.php [ OPTIONS ] -H host
-
     A program to scan for SSL/TLS protocols and cipher suites
 
     OPTIONS:
-    --browser BROWSER  Imitate as best as possible a given browser where BROWSER
-                       is one of chrome, chrome47, chrome49, edge, edge12,
-                       firefox, firefox38, firefox44, ie, ie8, ie11, ios, ios8,
-                       ios9, safari, safari8. No version means latest version.
-    --ciphers STRING   Use an OpenSSL cipher string when connecting. Overrides
-                       --browser.
-    -h, --help         This message
-    -p                 Port, defaults to 443. If 21, 25, 110, 143, or 587 then
-                       starttls with the appropriate protocol is assumed. Can
-                       be overridden with --starttls though.
-    --pretty           Use JSON_PRETTY_PRINT
-    --progress         Show progress while scanning
-    --protocols LIST   A comma separated list. Overrides --browser
-                       (e.g. tls1.2,tls1.1,tls1,ssl3,ssl2)
-    --starttls PROTO   PROTO must be supported by OpenSSL. Typically just ftp,
-                       smtp, pop3, or imap
-    --include-failures Include failed connections in output
-    -v, --version      Show version information
+    Options:"
+      --ciphers LIST    An openssl cipher string for use with TLSv1.2 and lower.
+                        Default: "ALL:COMPLEMENTOFALL"
+      --suites LIST     An openssl ciphersuite string for use with TLSv1.3.
+                        Default: all available TLSv1.3 suites
+      -h, --help        This message.
+      -p, --port PORT   Which port to use. Defaults to 443. If 21, 25, 110, 143,
+                        389, or 589 then --starttls is assumed.
+      --pretty          Pretty print output.
+      --progress        Display progress while scanning.
+      --protocols LIST  A space seperated list of protocols. Defaults to detected
+                        openssl s_client capability.
+                        Example: --protocols "tls1 tls1_1"
+      --starttls PROTO  Use starttls for given PROTO, assumed with standard ports.
+      -v, --version     Show version information.
 
-    Note: Because this program is dependent on OpenSSL its results will vary
-          with the version and capabilities of OpenSSL.
-
-##Note
+## Note
 Because this program is dependent on OpenSSL its results will vary with the version and capabilities of OpenSSL.
