@@ -78,7 +78,7 @@ fi
 eval set -- "$options"
 
 # Set defaults
-startciphers="ALL:COMPLEMENTOFALL"
+startciphers="@SECLEVEL=0:ALL:COMPLEMENTOFALL"
 port=443
 pretty=0
 progress=0
@@ -165,7 +165,7 @@ curvetypes[1]="explicit_prime"
 curvetypes[2]="explicit_char2"
 curvetypes[3]="named_curve"
 
-# from rfc 4492 section 5.1.1 and rfc 8422 section 5.1.1
+# from rfc 4492 section 5.1.1
 declare -A curvelist
 curvelist[1]="sect163k1"                           # deprecated
 curvelist[2]="sect163r1"                           # deprecated
@@ -176,19 +176,19 @@ curvelist[6]="sect233k1"                           # deprecated
 curvelist[7]="sect233r1"                           # deprecated
 curvelist[8]="sect239k1"                           # deprecated
 curvelist[9]="sect283k1"                           # deprecated
-curvelist[10]="sect283r1"                         # deprecated
-curvelist[11]="sect409k1"                         # deprecated
-curvelist[12]="sect409r1"                         # deprecated
-curvelist[13]="sect571k1"                         # deprecated
-curvelist[14]="sect571r1"                         # deprecated
-curvelist[15]="secp160k1"                         # deprecated
-curvelist[16]="secp160r1"                         # deprecated
-curvelist[17]="secp160r2"                         # deprecated
-curvelist[18]="secp192k1"                         # deprecated
-curvelist[19]="secp192r1"                         # deprecated
-curvelist[20]="secp224k1"                         # deprecated
-curvelist[21]="secp224r1"                         # deprecated
-curvelist[22]="secp256k1"                         # deprecated
+curvelist[10]="sect283r1"                          # deprecated
+curvelist[11]="sect409k1"                          # deprecated
+curvelist[12]="sect409r1"                          # deprecated
+curvelist[13]="sect571k1"                          # deprecated
+curvelist[14]="sect571r1"                          # deprecated
+curvelist[15]="secp160k1"                          # deprecated
+curvelist[16]="secp160r1"                          # deprecated
+curvelist[17]="secp160r2"                          # deprecated
+curvelist[18]="secp192k1"                          # deprecated
+curvelist[19]="secp192r1"                          # deprecated
+curvelist[20]="secp224k1"                          # deprecated
+curvelist[21]="secp224r1"                          # deprecated
+curvelist[22]="secp256k1"                          # deprecated
 curvelist[23]="secp256r1"
 curvelist[24]="secp384r1"
 curvelist[25]="secp521r1"
@@ -196,7 +196,7 @@ curvelist[25]="secp521r1"
 curvelist[26]="brainpoolP256r1"
 curvelist[27]="brainpoolP384r1"
 curvelist[28]="brainpoolP512r1"
-# from rfc 8422
+# from rfc 8422 section 5.1.1
 curvelist[29]="x25519"
 curvelist[30]="x448"
                                                    # 65024 - 65279 reserved
@@ -212,6 +212,7 @@ cert="{}"
 ipregex='^[0-9.]{7,15}$'
 if [[ "$host" =~ $ipregex ]] ; then
         hostfound="true"
+        sni=""
 else
         host $host >/dev/null 2>&1
         if [ $? -ne 0 ] ; then
@@ -220,6 +221,7 @@ else
                 enddate=`date +%s.%N`
         else
                 hostfound="true"
+                sni="-servername $host"
         fi
 fi
 
@@ -247,7 +249,7 @@ for protocol in $protocols ; do
                 fi
 
                 # attempt to connect with given params
-                echo|$OPENSSL s_client -msg -$protocol $CAFILE $cipherarg -connect $target $starttlsarg > "$outfile" 2>&1
+                echo|$OPENSSL s_client -msg -$protocol $sni $CAFILE $cipherarg -connect $target $starttlsarg > "$outfile" 2>&1
                 ret=$?
                 enddate=`date +%s.%N`
 
