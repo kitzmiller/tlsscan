@@ -1,8 +1,5 @@
 #!/bin/bash
-# Chris Kitzmiller - 8/31/2022
-
-# TODO: Quick fail on connection refused / timeout
-# TODO: Curve enumeration
+# Chris Kitzmiller - 9/21/2022
 
 # Check requsites
 # ensure openssl is in our path
@@ -61,6 +58,7 @@ usage() {
         echo "                    openssl s_client capability."
         echo "                    Example: --protocols \"tls1 tls1_1\""
         echo "  --starttls PROTO  Use starttls for given PROTO, assumed with standard ports."
+        echo "  -w, --timeout SEC Wait SEC seconds before timing out."
         echo "  -v, --version     Show version information."
         exit 1
 }
@@ -71,7 +69,7 @@ version() {
 }
 
 # Get options
-if ! options=$(/usr/bin/getopt -o p:hv -l ciphers:,help,port,pretty,progress,protocols:,starttls:,version -- "$@")
+if ! options=$(/usr/bin/getopt -o p:hvw: -l ciphers:,help,port,pretty,progress,protocols:,starttls:,timeout:,version -- "$@")
 then
         exit 1
 fi
@@ -116,6 +114,10 @@ do
                         ;;
                 --starttls)
                         starttls="$2"
+                        shift
+                        ;;
+                -w|--timeout)
+                        timeoutsec="$2"
                         shift
                         ;;
                 (--)
@@ -165,7 +167,7 @@ curvetypes[1]="explicit_prime"
 curvetypes[2]="explicit_char2"
 curvetypes[3]="named_curve"
 
-# from rfc 4492 section 5.1.1
+# from rfc 4492 section 5.1.1 and rfc 8422 section 5.1.1
 declare -A curvelist
 curvelist[1]="sect163k1"                           # deprecated
 curvelist[2]="sect163r1"                           # deprecated
@@ -176,19 +178,19 @@ curvelist[6]="sect233k1"                           # deprecated
 curvelist[7]="sect233r1"                           # deprecated
 curvelist[8]="sect239k1"                           # deprecated
 curvelist[9]="sect283k1"                           # deprecated
-curvelist[10]="sect283r1"                          # deprecated
-curvelist[11]="sect409k1"                          # deprecated
-curvelist[12]="sect409r1"                          # deprecated
-curvelist[13]="sect571k1"                          # deprecated
-curvelist[14]="sect571r1"                          # deprecated
-curvelist[15]="secp160k1"                          # deprecated
-curvelist[16]="secp160r1"                          # deprecated
-curvelist[17]="secp160r2"                          # deprecated
-curvelist[18]="secp192k1"                          # deprecated
-curvelist[19]="secp192r1"                          # deprecated
-curvelist[20]="secp224k1"                          # deprecated
-curvelist[21]="secp224r1"                          # deprecated
-curvelist[22]="secp256k1"                          # deprecated
+curvelist[10]="sect283r1"                         # deprecated
+curvelist[11]="sect409k1"                         # deprecated
+curvelist[12]="sect409r1"                         # deprecated
+curvelist[13]="sect571k1"                         # deprecated
+curvelist[14]="sect571r1"                         # deprecated
+curvelist[15]="secp160k1"                         # deprecated
+curvelist[16]="secp160r1"                         # deprecated
+curvelist[17]="secp160r2"                         # deprecated
+curvelist[18]="secp192k1"                         # deprecated
+curvelist[19]="secp192r1"                         # deprecated
+curvelist[20]="secp224k1"                         # deprecated
+curvelist[21]="secp224r1"                         # deprecated
+curvelist[22]="secp256k1"                         # deprecated
 curvelist[23]="secp256r1"
 curvelist[24]="secp384r1"
 curvelist[25]="secp521r1"
@@ -196,7 +198,7 @@ curvelist[25]="secp521r1"
 curvelist[26]="brainpoolP256r1"
 curvelist[27]="brainpoolP384r1"
 curvelist[28]="brainpoolP512r1"
-# from rfc 8422 section 5.1.1
+# from rfc 8422
 curvelist[29]="x25519"
 curvelist[30]="x448"
                                                    # 65024 - 65279 reserved
@@ -221,6 +223,13 @@ else
                 enddate=`date +%s.%N`
         else
                 hostfound="true"
+                # test if port is open
+                timeout "$timeoutsec" bash -c "echo > /dev/tcp/$host/$port"
+                if [ $? -ne 0 ] ; then
+                        # unable to connect to port
+                        protocols="" # skip main loop by voiding protocol list
+                        enddate=`date +%s.%N`
+                fi
                 sni="-servername $host"
         fi
 fi
