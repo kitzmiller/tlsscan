@@ -83,6 +83,7 @@ progress=0
 protocols=`$OPENSSL s_client -help 2>&1 | sed -n 's/^ \-\(ssl[23]\|tls1\(_[123]\)\?\).*/\1/p' | tr '\n' ' '`
 starttls=""
 startsuites=`$OPENSSL ciphers -V -s -tls1_3 | awk '{ print $3 }' | tr '\n' ':' | sed -e 's/:$//'`
+timeoutsec=1
 
 # Parse options
 while [ $# -gt 0 ]
