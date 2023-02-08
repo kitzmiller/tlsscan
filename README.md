@@ -1,6 +1,6 @@
 # A script to scan for TLS protocol and cipher support
 
-This is a PHP script which uses OpenSSL to scan a remote host's SSL/TLS protocol and cipher support
+This is a Bash script which uses OpenSSL to scan a remote host's SSL/TLS protocol and cipher support
 
 * Output in JSON
 * Shows preferred connection parameters
@@ -10,17 +10,16 @@ This is a PHP script which uses OpenSSL to scan a remote host's SSL/TLS protocol
 * Shows elliptic curve type/name
 
 ## Compatibility
-* Tested with OpenSSL 0.9.8 through 1.0.1
-* Scans for SSLv2 through TLSv1.2
+* Tested with OpenSSL 0.9.8 through 1.1.1q
+* Scans for SSLv2 through TLSv1.3
 
 ## Usage
-    ./tlsscan.php [ OPTIONS ] -H host
+    ./tlsscan.sh [ OPTIONS ] host
     A program to scan for SSL/TLS protocols and cipher suites
 
-    OPTIONS:
-    Options:"
+    Options:
       --ciphers LIST    An openssl cipher string for use with TLSv1.2 and lower.
-                        Default: "ALL:COMPLEMENTOFALL"
+                        Default: "@SECLEVEL=0:ALL:COMPLEMENTOFALL"
       --suites LIST     An openssl ciphersuite string for use with TLSv1.3.
                         Default: all available TLSv1.3 suites
       -h, --help        This message.
@@ -33,6 +32,10 @@ This is a PHP script which uses OpenSSL to scan a remote host's SSL/TLS protocol
                         Example: --protocols "tls1 tls1_1"
       --starttls PROTO  Use starttls for given PROTO, assumed with standard ports.
       -v, --version     Show version information.
+
+## Requirements
+* jq
+* OpenSSL
 
 ## Note
 Because this program is dependent on OpenSSL its results will vary with the version and capabilities of OpenSSL.
