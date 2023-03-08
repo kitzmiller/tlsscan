@@ -30,6 +30,7 @@ This is a Bash script which uses OpenSSL to scan a remote host's SSL/TLS protoco
       --protocols LIST  A space seperated list of protocols. Defaults to detected
                         openssl s_client capability.
                         Example: --protocols "tls1 tls1_1"
+      --sni HOSTNAME    Use HOSTNAME as the Server Name Indicator value.
       --starttls PROTO  Use starttls for given PROTO, assumed with standard ports.
       -v, --version     Show version information.
 

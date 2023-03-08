@@ -1,5 +1,4 @@
 #!/bin/bash
-# Chris Kitzmiller - 2/8/2023
 
 # Check requsites
 # ensure openssl is in our path
@@ -10,24 +9,24 @@ if [ -x /usr/local/ssl/bin/openssl ] ; then
 	#	./config enable-ssl3 enable-ssl3-method enable-weak-ssl-ciphers --prefix=/usr/local/ssl --openssldir=/usr/local/ssl -Wl,--enable-new-dtags,-rpath,'$(LIBRPATH)'
 	#
 	# Test sites:
-	#	SSLv3:  www.ssllabs.com:10300
-	#	TLS1:   www.ssllabs.com:10301
-	#	TLS1.1: www.ssllabs.com:10302
-	#	TLS1.2: www.ssllabs.com:10303
+	#	SSLv3:    www.ssllabs.com:10300
+	#	TLS1:     www.ssllabs.com:10301
+	#	TLS1.1:   www.ssllabs.com:10302
+	#	TLS1.2:   www.ssllabs.com:10303
 	#	DHE 1024: dh1024.badssl.com:443
 
 	OPENSSL="/usr/local/ssl/bin/openssl"
 else
-	OPENSSL=`which openssl`
-	if [ "$?" -ne 0 ] ; then
+	OPENSSL=$(command -v openssl)
+	if [ -z "$OPENSSL" ] ; then
 		echo "Error, openssl not found"
 		exit 1
 	fi
 fi
 
 # ensure jq is in our path
-JQ=`which jq`
-if [ "$?" -ne 0 ] ; then
+JQ=$(command -v jq)
+if [ -z "$JQ" ] ; then
 	echo "Error, jq not found"
 	exit 1
 fi
@@ -41,35 +40,36 @@ fi
 
 usage() {
 	     #12345678901234567890123456789012345678901234567890123456789012345678901234567890
-	echo "Usage: $0 [ options ] host"
+	echo "Usage: $0 options host"
 	echo "  A program to scan for SSL/TLS protocols and cipher suites"
 	echo ""
 	echo "Options:"
-	echo "  --ciphers LIST    An openssl cipher string for use with TLSv1.2 and lower."
-	echo "                    Default: \"@SECLEVEL=0:ALL:COMPLEMENTOFALL\""
-	echo "  --suites LIST     An openssl ciphersuite string for use with TLSv1.3."
-	echo "                    Default: all available TLSv1.3 suites"
-	echo "  -h, --help        This message."
-	echo "  -p, --port PORT   Which port to use. Defaults to 443. If 21, 25, 110, 143,"
-	echo "                    389, or 589 then --starttls is assumed."
-	echo "  --pretty          Pretty print output."
-	echo "  --progress        Display progress while scanning."
-	echo "  --protocols LIST  A space seperated list of protocols. Defaults to detected"
-	echo "                    openssl s_client capability."
-	echo "                    Example: --protocols \"tls1 tls1_1\""
-	echo "  --starttls PROTO  Use starttls for given PROTO, assumed with standard ports."
-	echo "  -w, --timeout SEC Wait SEC seconds before timing out."
-	echo "  -v, --version     Show version information."
+	echo "  --ciphers LIST     An openssl cipher string for use with TLSv1.2 and lower."
+	echo "                     Default: \"ALL:COMPLEMENTOFALL\""
+	echo "  --suites LIST      An openssl ciphersuite string for use with TLSv1.3."
+	echo "                     Default: all available TLSv1.3 suites"
+	echo "  -h, --help         This message."
+	echo "  -p, --port PORT    Which port to use. Defaults to 443. If 21, 25, 110, 143,"
+	echo "                     389, or 589 then --starttls is assumed."
+	echo "  --pretty           Pretty print output."
+	echo "  --progress         Display progress while scanning."
+	echo "  --protocols LIST   A space seperated list of protocols. Defaults to detected"
+	echo "                     openssl s_client capability."
+	echo "                     Example: --protocols \"tls1 tls1_1\""
+	echo "  --sni HOSTNAME     Use HOSTNAME as Server Name Indicator value."
+	echo "  --starttls PROTO   Use starttls for given PROTO, assumed with standard ports."
+	echo "  -w, --timeout SEC  Wait SEC seconds before timing out."
+	echo "  -v, --version      Show version information."
 	exit 1
 }
 
 version() {
-	echo "tlsscan.sh version 0.5 - Chris Kitzmiller 6/29/2020"
+	echo "tlsscan.sh version 0.6 - Chris Kitzmiller 3/8/2023"
 	exit 0
 }
 
 # Get options
-if ! options=$(/usr/bin/getopt -o p:hvw: -l ciphers:,help,port,pretty,progress,protocols:,starttls:,timeout:,version -- "$@")
+if ! options=$(/usr/bin/getopt -o p:hvw: -l ciphers:,help,port,pretty,progress,protocols:,sni:,starttls:,timeout:,version -- "$@")
 then
 	exit 1
 fi
@@ -80,9 +80,10 @@ startciphers="@SECLEVEL=0:ALL:COMPLEMENTOFALL"
 port=443
 pretty=0
 progress=0
-protocols=`$OPENSSL s_client -help 2>&1 | sed -n 's/^ \-\(ssl[23]\|tls1\(_[123]\)\?\).*/\1/p' | tr '\n' ' '`
+protocols=$($OPENSSL s_client -help 2>&1 | sed -n 's/^ \-\(ssl[23]\|tls1\(_[123]\)\?\).*/\1/p' | tr '\n' ' ')
+sni=""
 starttls=""
-startsuites=`$OPENSSL ciphers -V -s -tls1_3 | awk '{ print $3 }' | tr '\n' ':' | sed -e 's/:$//'`
+startsuites=$($OPENSSL ciphers -V -s -tls1_3 | awk '{ print $3 }' | tr '\n' ':' | sed -e 's/:$//')
 timeoutsec=1
 
 # Parse options
@@ -111,6 +112,10 @@ do
 			;;
 		--protocols)
 			protocols="$2"
+			shift
+			;;
+		--sni)
+			sni="-servername $2"
 			shift
 			;;
 		--starttls)
@@ -144,8 +149,8 @@ fi
 # Parse host argument and possibly break out port
 host="$1"
 # if host has a colon in it then use that port number
-echo $host | grep -q : && port=`echo $host | cut -d: -f2`
-echo $host | grep -q : && host=`echo $host | cut -d: -f1`
+echo "$host" | grep -q : && port=$(echo "$host" | cut -d: -f2)
+echo "$host" | grep -q : && host=$(echo "$host" | cut -d: -f1)
 target="${host}:${port}"
 
 # assume starttls if port is a default port for tls services
@@ -202,36 +207,36 @@ curvelist[28]="brainpoolP512r1"
 # from rfc 8422
 curvelist[29]="x25519"
 curvelist[30]="x448"
-                                                   # 65024 - 65279 reserved
+# 65024 - 65279 reserved
 curvelist[65281]="arbitrary_explicit_prime_curves" # deprecated
 curvelist[65282]="arbitrary_explicit_char2_curves" # deprecated
 
 data="{}"
 protojson="{}"
-startdate=`date +%s.%N`
+startdate=$(date +%s.%N)
 cert="{}"
 
 
 ipregex='^[0-9.]{7,15}$'
 if [[ "$host" =~ $ipregex ]] ; then
 	hostfound="true"
-	sni=""
 else
-	host $host >/dev/null 2>&1
-	if [ $? -ne 0 ] ; then
+	if ! host "$host" >/dev/null 2>&1 ; then
 		hostfound="false"
 		protocols="" # skip main loop by voiding protocol list
-		enddate=`date +%s.%N`
+		enddate=$(date +%s.%N)
 	else
 		hostfound="true"
 		# test if port is open
-		timeout "$timeoutsec" bash -c "echo > /dev/tcp/$host/$port"
-		if [ $? -ne 0 ] ; then
+		if ! timeout "$timeoutsec" bash -c "echo > /dev/tcp/$host/$port" ; then
 			# unable to connect to port
 			protocols="" # skip main loop by voiding protocol list
-			enddate=`date +%s.%N`
+			enddate=$(date +%s.%N)
 		fi
-		sni="-servername $host"
+		if [ -z "$sni" ] ; then
+			# if sni was not set manually via options then set it here
+			sni="-servername $host"
+		fi
 	fi
 fi
 
@@ -250,7 +255,7 @@ for protocol in $protocols ; do
 		echo -n "$protocol: "
 	fi
 	while [ "$ret" -eq 0 ] ; do
-		outfile=`mktemp -p /tmp tlsscan-XXXXXXXX.tmp`
+		outfile=$(mktemp -p /tmp tlsscan-XXXXXXXX.tmp)
 
 		if [ "$protocol" == "tls1_3" ] ; then
 			cipherarg="-ciphersuites $suites"
@@ -259,9 +264,9 @@ for protocol in $protocols ; do
 		fi
 
 		# attempt to connect with given params
-		echo|$OPENSSL s_client -msg -$protocol $sni $CAFILE $cipherarg -connect $target $starttlsarg > "$outfile" 2>&1
+		echo | $OPENSSL s_client -msg -$protocol $sni $CAFILE $cipherarg -connect $target $starttlsarg > "$outfile" 2>&1
 		ret=$?
-		enddate=`date +%s.%N`
+		enddate=$(date +%s.%N)
 
 		# if the protocol is enabled but there are no ciphers available then
 		# some configurations result in a successful connection though practically
@@ -274,34 +279,34 @@ for protocol in $protocols ; do
 			fi
 
 			# connection success, parse results
-			cipher=`sed -ne 's/^New, \(SSL\|TLS\)[^,]*, Cipher is \(.*\)$/\2/p' "$outfile"`
+			cipher=$(sed -ne 's/^New, \(SSL\|TLS\)[^,]*, Cipher is \(.*\)$/\2/p' "$outfile")
 
 			# get info about the cipher
 			if [ "$protocol" == "tls1_3" ] ; then
-				read cipherhex kx au enc mac <<< $($OPENSSL ciphers -V -ciphersuites "$cipher" | awk -v cipher=$cipher '$3 == cipher { printf("%s %s %s %s %s\n", substr($1, 1, 4) substr($1, 8, 2), substr($5, 4), substr($6, 4), substr($7, 5), substr($8, 5)) }')
+				read -r cipherhex kx au enc mac <<< "$($OPENSSL ciphers -V -ciphersuites "$cipher" | awk -v cipher="$cipher" '$3 == cipher { printf("%s %s %s %s %s\n", substr($1, 1, 4) substr($1, 8, 2), substr($5, 4), substr($6, 4), substr($7, 5), substr($8, 5)) }')"
 			else
-				read cipherhex kx au enc mac <<< $($OPENSSL ciphers -V "$cipher" | awk -v cipher=$cipher '$3 == cipher { printf("%s %s %s %s %s\n", substr($1, 1, 4) substr($1, 8, 2), substr($5, 4), substr($6, 4), substr($7, 5), substr($8, 5)) }')
+				read -r cipherhex kx au enc mac <<< "$($OPENSSL ciphers -V "$cipher" | awk -v cipher="$cipher" '$3 == cipher { printf("%s %s %s %s %s\n", substr($1, 1, 4) substr($1, 8, 2), substr($5, 4), substr($6, 4), substr($7, 5), substr($8, 5)) }')"
 			fi
 
-			keysize=`sed -ne 's/^Server public key is \([0-9]*\) bit/\1/p' "$outfile"`
-			keyexmsg=`grep -C 1 "TLS .* ServerKeyExchange" "$outfile"| tail -n 1`
+			keysize=$(sed -ne 's/^Server public key is \([0-9]*\) bit/\1/p' "$outfile")
+			keyexmsg=$(grep -C 1 "TLS .* ServerKeyExchange" "$outfile"| tail -n 1)
 			case $kx in
 				*EC*)
-					curvetype=`echo "$keyexmsg" | awk '{ print $5 }'`
-					curvehex=`echo "$keyexmsg" | awk '{ print $6 $7 }'`
-					curvedec=`echo $((16#$curvehex))`
+					curvetype=$(echo "$keyexmsg" | awk '{ print $5 }')
+					curvehex=$(echo "$keyexmsg" | awk '{ print $6 $7 }')
+					curvedec=$((16#$curvehex))
 					curvename="${curvelist[$curvedec]}"
 					;;
 				DH)
-					dhparamsizehex=`echo "$keyexmsg" | awk '{ print $5$6 }'`
-					dhparamsize=`echo $((16#$dhparamsizehex))`
+					dhparamsizehex=$(echo "$keyexmsg" | awk '{ print $5$6 }')
+					dhparamsize=$((16#$dhparamsizehex))
 					# this isnt exaclty true but it is close enough in practice
-					dhparamsizebits=`echo $((dhparamsize * 8))`
+					dhparamsizebits=$((dhparamsize * 8))
 					;;
 			esac
 
 			# build info on this cipher
-			cipherjson=`echo '{}' | $JQ -cM \
+			cipherjson=$(echo '{}' | jq -cM \
 				--arg protocol "$protocol" \
 				--arg cipher "$cipher" \
 				--arg cipherhex "$cipherhex" \
@@ -337,35 +342,35 @@ for protocol in $protocols ; do
 						"dhparamsizebits": $dhparamsizebits | tonumber,
 						"pfs": true
 					} else (if $protocol == "tls1_3" then {"pfs": true} else {"pfs": false} end) end))
-				}'`
+				}')
 
 			# add this cipher object to the protocol object
-			protojson=`echo "$protojson" | $JQ --arg cipher "$cipher" --argjson cipherjson "$cipherjson" -cM '. + $cipherjson'`
-
+			protojson=$(echo "$protojson" | jq --arg cipher "$cipher" --argjson cipherjson "$cipherjson" -cM '. + $cipherjson')
+ 
 			# update cipherarg for next iteration
 			if [ "$protocol" == "tls1_3" ] ; then
-				suites=`echo "$suites" | sed -e "s/$cipher//;s/::/:/g;s/^://;s/:$//"`
+				suites=$(echo "$suites" | sed -e "s/$cipher//;s/::/:/g;s/^://;s/:$//")
 			else
 				ciphers="$ciphers:-$cipher"
 			fi
 
 			if [ "$cert" == "{}" ] ; then
 				# just parse the certificate the first time
-				certfile=`mktemp -p /tmp tlsscan-cert-XXXXXXXX.tmp`
-				certparsedfile=`mktemp -p /tmp tlsscan-cert-parsed-XXXXXXXX.tmp`
+				certfile=$(mktemp -p /tmp tlsscan-cert-XXXXXXXX.tmp)
+				certparsedfile=$(mktemp -p /tmp tlsscan-cert-parsed-XXXXXXXX.tmp)
 				sed -e '0,/^Server certificate$/d;/^subject/,$d' "$outfile" > "$certfile"
 				$OPENSSL x509 -in "$certfile" -noout -text > "$certparsedfile"
 
-				subject=`grep -i Subject: "$certparsedfile"  | tr ',' '\n' | grep -i 'cn *=' | sed -e 's/.*= *//'`
-				datestart=`date -d "$(grep 'Not Before' "$certparsedfile" | sed -e 's/.*Not Before: *//')" +%s`
-				dateend=`date -d "$(grep 'Not After' "$certparsedfile" | sed -e 's/.*Not After *: *//')" +%s`
-				sans=`openssl x509 -in "$certfile" -noout -ext subjectAltName | grep -v '^X509v3' | sed -e 's/^ *DNS://;s/, DNS:/ /g;s/^/["/;s/ /", "/g;s/$/"]/'`
-				publickeyalgorithm=`grep 'Public Key Algorithm:' "$certparsedfile" | sed -e 's/[[:space:]]*Public Key Algorithm:[[:space:]]*//'`
-				publickeysize=`grep 'Public-Key:' "$certparsedfile" | sed -e 's/.*(//;s/ .*//'`
-				fingerprintsha1=`$OPENSSL x509 -in "$certfile" -noout -sha1 -fingerprint | cut -d = -f 2 | tr -d :`
-				fingerprintsha256=`$OPENSSL x509 -in "$certfile" -noout -sha256 -fingerprint | cut -d = -f 2 | tr -d :`
+				subject=$(grep -i Subject: "$certparsedfile"  | tr ',' '\n' | grep -i 'cn *=' | sed -e 's/.*= *//')
+				datestart=$(date -d "$(grep 'Not Before' "$certparsedfile" | sed -e 's/.*Not Before: *//')" +%s)
+				dateend=$(date -d "$(grep 'Not After' "$certparsedfile" | sed -e 's/.*Not After *: *//')" +%s)
+				sans=$(openssl x509 -in "$certfile" -noout -ext subjectAltName | grep -v '^X509v3' | tr ',' '\n' | cut -d ':' -f 2 | tr '\n' ',' | sed 's/^/["/;s/,/", "/g;s/....$/"]/')
+				publickeyalgorithm=$(grep 'Public Key Algorithm:' "$certparsedfile" | sed -e 's/[[:space:]]*Public Key Algorithm:[[:space:]]*//')
+				publickeysize=$(grep 'Public-Key:' "$certparsedfile" | sed -e 's/.*(//;s/ .*//')
+				fingerprintsha1=$($OPENSSL x509 -in "$certfile" -noout -sha1 -fingerprint | cut -d = -f 2 | tr -d : )
+				fingerprintsha256=$($OPENSSL x509 -in "$certfile" -noout -sha256 -fingerprint | cut -d = -f 2 | tr -d : )
 
-				cert=`echo '{}' | $JQ -cM \
+				cert=$(echo '{}' | jq -cM \
 					--arg subject "$subject" \
 					--arg datestart "$datestart" \
 					--arg dateend "$dateend" \
@@ -383,7 +388,7 @@ for protocol in $protocols ; do
 						"publickeysize": $publickeysize,
 						"subject": $subject,
 						"x509v3sans": $sans
-					}'`
+					}')
 
 				rm "$certparsedfile"
 				rm "$certfile"
@@ -397,12 +402,12 @@ for protocol in $protocols ; do
 	fi
 
 	# add protocol object to the return data
-	data=`echo "$data" | $JQ -cM --arg protocol "$protocol" --argjson protojson "$protojson" '. + {($protocol): $protojson}'`
+	data=$(echo "$data" | jq -cM --arg protocol "$protocol" --argjson protojson "$protojson" '. + {($protocol): $protojson}')
 done
 
 # Construct metadata
-duration=`echo $startdate $enddate | awk '{ printf("%.6f\n", $2 - $1) }'`
-data=`echo "$data" | $JQ -cM --arg duration "$duration" --argjson hostfound "$hostfound" --argjson cert "$cert" '{ "certificate": $cert, "protocols": ., "metadata": { "duration": $duration | tonumber, "hostfound": $hostfound, "success": ($hostfound and ([.[] | length] | max > 0))}}'`
+duration=$(echo "$startdate" "$enddate" | awk '{ printf("%.6f\n", $2 - $1) }')
+data=$(echo "$data" | jq -cM --arg duration "$duration" --argjson hostfound "$hostfound" --argjson cert "$cert" '{ "certificate": $cert, "protocols": ., "metadata": { "duration": $duration | tonumber, "hostfound": $hostfound, "success": ($hostfound and ([.[] | length] | max > 0))}}')
 
 # Print output
 if [ "$pretty" -gt 0 ] ; then
