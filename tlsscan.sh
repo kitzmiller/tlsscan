@@ -1,19 +1,20 @@
 #!/bin/bash
+# Chris Kitzmiller - 3/3/2025
 
 # Check requsites
 # ensure openssl is in our path
 if [ -x /usr/local/ssl/bin/openssl ] ; then
 	# Prefer localcally compiled openssl if avail
 	# If compiling locally you can use this ./config line to enable SSLv3 / 3DES, RC4, IDEA, etc.:
-	#	apt-get install linux-libc-dev libc6-dev
-	#	./config enable-ssl3 enable-ssl3-method enable-weak-ssl-ciphers --prefix=/usr/local/ssl --openssldir=/usr/local/ssl -Wl,--enable-new-dtags,-rpath,'$(LIBRPATH)'
+	#       apt-get install linux-libc-dev libc6-dev
+	#       ./config enable-ssl3 enable-ssl3-method enable-weak-ssl-ciphers --prefix=/usr/local/ssl --openssldir=/usr/local/ssl -Wl,--enable-new-dtags,-rpath,'$(LIBRPATH)'
 	#
 	# Test sites:
-	#	SSLv3:    www.ssllabs.com:10300
-	#	TLS1:     www.ssllabs.com:10301
-	#	TLS1.1:   www.ssllabs.com:10302
-	#	TLS1.2:   www.ssllabs.com:10303
-	#	DHE 1024: dh1024.badssl.com:443
+	#       SSLv3:  www.ssllabs.com:10300
+	#       TLS1:   www.ssllabs.com:10301
+	#       TLS1.1: www.ssllabs.com:10302
+	#       TLS1.2: www.ssllabs.com:10303
+	#       DHE 1024: dh1024.badssl.com:443
 
 	OPENSSL="/usr/local/ssl/bin/openssl"
 else
@@ -44,27 +45,27 @@ usage() {
 	echo "  A program to scan for SSL/TLS protocols and cipher suites"
 	echo ""
 	echo "Options:"
-	echo "  --ciphers LIST     An openssl cipher string for use with TLSv1.2 and lower."
-	echo "                     Default: \"ALL:COMPLEMENTOFALL\""
-	echo "  --suites LIST      An openssl ciphersuite string for use with TLSv1.3."
-	echo "                     Default: all available TLSv1.3 suites"
-	echo "  -h, --help         This message."
-	echo "  -p, --port PORT    Which port to use. Defaults to 443. If 21, 25, 110, 143,"
-	echo "                     389, or 589 then --starttls is assumed."
-	echo "  --pretty           Pretty print output."
-	echo "  --progress         Display progress while scanning."
-	echo "  --protocols LIST   A space seperated list of protocols. Defaults to detected"
-	echo "                     openssl s_client capability."
-	echo "                     Example: --protocols \"tls1 tls1_1\""
-	echo "  --sni HOSTNAME     Use HOSTNAME as Server Name Indicator value."
-	echo "  --starttls PROTO   Use starttls for given PROTO, assumed with standard ports."
-	echo "  -w, --timeout SEC  Wait SEC seconds before timing out."
-	echo "  -v, --version      Show version information."
+	echo "  --ciphers LIST    An openssl cipher string for use with TLSv1.2 and lower."
+	echo "		    Default: \"ALL:COMPLEMENTOFALL\""
+	echo "  --suites LIST     An openssl ciphersuite string for use with TLSv1.3."
+	echo "		    Default: all available TLSv1.3 suites"
+	echo "  -h, --help	This message."
+	echo "  -p, --port PORT   Which port to use. Defaults to 443. If 21, 25, 110, 143,"
+	echo "		    389, or 589 then --starttls is assumed."
+	echo "  --pretty	  Pretty print output."
+	echo "  --progress	Display progress while scanning."
+	echo "  --protocols LIST  A space seperated list of protocols. Defaults to detected"
+	echo "		    openssl s_client capability."
+	echo "		    Example: --protocols \"tls1 tls1_1\""
+	echo "  --sni HOSTNAME    Use HOSTNAME as Server Name Indicator value."
+	echo "  --starttls PROTO  Use starttls for given PROTO, assumed with standard ports."
+	echo "  -w, --timeout SEC Wait SEC seconds before timing out."
+	echo "  -v, --version     Show version information."
 	exit 1
 }
 
 version() {
-	echo "tlsscan.sh version 0.6 - Chris Kitzmiller 3/8/2023"
+	echo "tlsscan.sh version 0.5 - Chris Kitzmiller 6/29/2020"
 	exit 0
 }
 
@@ -175,28 +176,28 @@ curvetypes[3]="named_curve"
 
 # from rfc 4492 section 5.1.1 and rfc 8422 section 5.1.1
 declare -A curvelist
-curvelist[1]="sect163k1"                           # deprecated
-curvelist[2]="sect163r1"                           # deprecated
-curvelist[3]="sect163r2"                           # deprecated
-curvelist[4]="sect193r1"                           # deprecated
-curvelist[5]="sect193r2"                           # deprecated
-curvelist[6]="sect233k1"                           # deprecated
-curvelist[7]="sect233r1"                           # deprecated
-curvelist[8]="sect239k1"                           # deprecated
-curvelist[9]="sect283k1"                           # deprecated
-curvelist[10]="sect283r1"                          # deprecated
-curvelist[11]="sect409k1"                          # deprecated
-curvelist[12]="sect409r1"                          # deprecated
-curvelist[13]="sect571k1"                          # deprecated
-curvelist[14]="sect571r1"                          # deprecated
-curvelist[15]="secp160k1"                          # deprecated
-curvelist[16]="secp160r1"                          # deprecated
-curvelist[17]="secp160r2"                          # deprecated
-curvelist[18]="secp192k1"                          # deprecated
-curvelist[19]="secp192r1"                          # deprecated
-curvelist[20]="secp224k1"                          # deprecated
-curvelist[21]="secp224r1"                          # deprecated
-curvelist[22]="secp256k1"                          # deprecated
+curvelist[1]="sect163k1"			   # deprecated
+curvelist[2]="sect163r1"			   # deprecated
+curvelist[3]="sect163r2"			   # deprecated
+curvelist[4]="sect193r1"			   # deprecated
+curvelist[5]="sect193r2"			   # deprecated
+curvelist[6]="sect233k1"			   # deprecated
+curvelist[7]="sect233r1"			   # deprecated
+curvelist[8]="sect239k1"			   # deprecated
+curvelist[9]="sect283k1"			   # deprecated
+curvelist[10]="sect283r1"			 # deprecated
+curvelist[11]="sect409k1"			 # deprecated
+curvelist[12]="sect409r1"			 # deprecated
+curvelist[13]="sect571k1"			 # deprecated
+curvelist[14]="sect571r1"			 # deprecated
+curvelist[15]="secp160k1"			 # deprecated
+curvelist[16]="secp160r1"			 # deprecated
+curvelist[17]="secp160r2"			 # deprecated
+curvelist[18]="secp192k1"			 # deprecated
+curvelist[19]="secp192r1"			 # deprecated
+curvelist[20]="secp224k1"			 # deprecated
+curvelist[21]="secp224r1"			 # deprecated
+curvelist[22]="secp256k1"			 # deprecated
 curvelist[23]="secp256r1"
 curvelist[24]="secp384r1"
 curvelist[25]="secp521r1"
@@ -207,7 +208,7 @@ curvelist[28]="brainpoolP512r1"
 # from rfc 8422
 curvelist[29]="x25519"
 curvelist[30]="x448"
-# 65024 - 65279 reserved
+						   # 65024 - 65279 reserved
 curvelist[65281]="arbitrary_explicit_prime_curves" # deprecated
 curvelist[65282]="arbitrary_explicit_char2_curves" # deprecated
 
@@ -306,7 +307,7 @@ for protocol in $protocols ; do
 			esac
 
 			# build info on this cipher
-			cipherjson=$(echo '{}' | jq -cM \
+			cipherjson=$(echo '{}' | $JQ -cM \
 				--arg protocol "$protocol" \
 				--arg cipher "$cipher" \
 				--arg cipherhex "$cipherhex" \
@@ -345,7 +346,7 @@ for protocol in $protocols ; do
 				}')
 
 			# add this cipher object to the protocol object
-			protojson=$(echo "$protojson" | jq --arg cipher "$cipher" --argjson cipherjson "$cipherjson" -cM '. + $cipherjson')
+			protojson=$(echo "$protojson" | $JQ --arg cipher "$cipher" --argjson cipherjson "$cipherjson" -cM '. + $cipherjson')
  
 			# update cipherarg for next iteration
 			if [ "$protocol" == "tls1_3" ] ; then
@@ -362,16 +363,20 @@ for protocol in $protocols ; do
 				$OPENSSL x509 -in "$certfile" -noout -text > "$certparsedfile"
 
 				subject=$(grep -i Subject: "$certparsedfile"  | tr ',' '\n' | grep -i 'cn *=' | sed -e 's/.*= *//')
+				issuer=$(grep -i Issuer: "$certparsedfile"  | tr ',' '\n' | grep -i 'cn *=' | sed -e 's/.*= *//')
 				datestart=$(date -d "$(grep 'Not Before' "$certparsedfile" | sed -e 's/.*Not Before: *//')" +%s)
 				dateend=$(date -d "$(grep 'Not After' "$certparsedfile" | sed -e 's/.*Not After *: *//')" +%s)
 				sans=$(openssl x509 -in "$certfile" -noout -ext subjectAltName | grep -v '^X509v3' | tr ',' '\n' | cut -d ':' -f 2 | tr '\n' ',' | sed 's/^/["/;s/,/", "/g;s/....$/"]/')
+				# if somehow there is no x509v3SAN then set this to an empty string (rare)
+				if [ "${sans}x" == "x" ] ; then sans="\"\"" ; fi
 				publickeyalgorithm=$(grep 'Public Key Algorithm:' "$certparsedfile" | sed -e 's/[[:space:]]*Public Key Algorithm:[[:space:]]*//')
 				publickeysize=$(grep 'Public-Key:' "$certparsedfile" | sed -e 's/.*(//;s/ .*//')
 				fingerprintsha1=$($OPENSSL x509 -in "$certfile" -noout -sha1 -fingerprint | cut -d = -f 2 | tr -d : )
 				fingerprintsha256=$($OPENSSL x509 -in "$certfile" -noout -sha256 -fingerprint | cut -d = -f 2 | tr -d : )
 
-				cert=$(echo '{}' | jq -cM \
+				cert=$(echo '{}' | $JQ -cM \
 					--arg subject "$subject" \
+					--arg issuer "$issuer" \
 					--arg datestart "$datestart" \
 					--arg dateend "$dateend" \
 					--argjson sans "$sans" \
@@ -387,6 +392,7 @@ for protocol in $protocols ; do
 						"publickeyalgorithm": $pubkeyalgo,
 						"publickeysize": $publickeysize,
 						"subject": $subject,
+						"issuer": $issuer,
 						"x509v3sans": $sans
 					}')
 
@@ -402,12 +408,12 @@ for protocol in $protocols ; do
 	fi
 
 	# add protocol object to the return data
-	data=$(echo "$data" | jq -cM --arg protocol "$protocol" --argjson protojson "$protojson" '. + {($protocol): $protojson}')
+	data=$(echo "$data" | $JQ -cM --arg protocol "$protocol" --argjson protojson "$protojson" '. + {($protocol): $protojson}')
 done
 
 # Construct metadata
 duration=$(echo "$startdate" "$enddate" | awk '{ printf("%.6f\n", $2 - $1) }')
-data=$(echo "$data" | jq -cM --arg duration "$duration" --argjson hostfound "$hostfound" --argjson cert "$cert" '{ "certificate": $cert, "protocols": ., "metadata": { "duration": $duration | tonumber, "hostfound": $hostfound, "success": ($hostfound and ([.[] | length] | max > 0))}}')
+data=$(echo "$data" | $JQ -cM --arg duration "$duration" --argjson hostfound "$hostfound" --argjson cert "$cert" '{ "certificate": $cert, "protocols": ., "metadata": { "duration": $duration | tonumber, "hostfound": $hostfound, "success": ($hostfound and ([.[] | length] | max > 0))}}')
 
 # Print output
 if [ "$pretty" -gt 0 ] ; then
